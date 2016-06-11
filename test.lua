@@ -52,3 +52,42 @@ wlog.mod1 = wlog.writers(wlog.modules.mod1,wlog.ram)
 wlog.mod2 = wlog.writers(wlog.modules.mod2,wlog.con)
 test_wlog()
 
+-- ======================================================== 
+-- Example of output using command: lua test.lua
+--
+-- Testing level: INFO
+-- mod1.con: Here is the info
+-- mod2.con: Here is the info
+-- Testing level: TRACE
+-- mod1.con: Here is the info
+-- mod1.con: Here is the trace
+-- mod2.con: Here is the info
+-- mod2.con: Here is the trace
+-- mod2.ram: Here is the trace
+-- Testing level: DEBUG
+-- mod1.con: Here is the info
+-- mod1.con: Here is the trace
+-- mod1.ram: Here is the debug
+-- mod2.con: Here is the info
+-- mod2.con: Here is the trace
+-- mod2.ram: Here is the trace
+-- mod2.con: Here is the debug
+-- Testing level: NONE
+-- Testing level: TRACE all in ram
+-- mod1.ram: Here is the info
+-- mod1.ram: Here is the trace
+-- mod2.ram: Here is the info
+-- mod2.ram: Here is the trace
+-- mod2.ram: Here is the trace
+-- Testing level: DEBUG all in con
+-- mod1.con: Here is the info
+-- mod1.con: Here is the trace
+-- mod1.con: Here is the debug
+-- mod2.con: Here is the info
+-- mod2.con: Here is the trace
+-- mod2.con: Here is the trace
+-- mod2.con: Here is the debug
+-- Testing level: INFO mod1 in ram and mod2 in con
+-- mod1.ram: Here is the info
+-- mod2.con: Here is the info
+-- ======================================================== 
