@@ -1,93 +1,53 @@
 local wlog = require"wlog"
 
-local  INFO   =  wlog.INFO
-local  TRACE  =  wlog.TRACE
-local  DEBUG  =  wlog.DEBUG
+local ERR = wlog.ERR
+local INFO = wlog.INFO
+local TRACE = wlog.TRACE
+local DEBUG = wlog.DEBUG
+
+local clog = wlog.WEB.con
+local rlog = wlog.WEB.ram
 
 
 function test_wlog()
-    wlog.mod1.con( INFO() and "Here is the info")
-    wlog.mod1.con( TRACE() and "Here is the trace")
-    wlog.mod1.ram( DEBUG() and "Here is the debug")
+    clog( ERR() and "ERR!!!")
+    clog( INFO() and "INFO!!!")
+    clog( TRACE() and "TRACE!!!")
+    clog( DEBUG() and "DEBUG!!!")
+    rlog( ERR() and "ERR!!!")
+    rlog( INFO() and "INFO!!!")
+    rlog( TRACE() and "TRACE!!!")
+    rlog( DEBUG() and "DEBUG!!!")
 
-
-    wlog.mod2.con( INFO() and "Here is the info")
-    wlog.mod2.con( TRACE() and "Here is the trace")
-    wlog.mod2.ram( TRACE() and "Here is the trace")
-    wlog.mod2.con( DEBUG() and "Here is the debug")
+    wlog.GEN.con( TRACE() and "TRACE!!!")
+    wlog.GEN.ram( TRACE() and "TRACE!!!")
 end
 
-
-print("Testing level: INFO")
-wlog.level = wlog.LOG_LEVEL_INFO
+print("Testing wlog: DEBUG...")
+wlog.level = wlog.DEBUG
 test_wlog()
 
-print("Testing level: TRACE")
-wlog.level = wlog.LOG_LEVEL_TRACE
-test_wlog()
-
-print("Testing level: DEBUG")
-wlog.level = wlog.LOG_LEVEL_DEBUG
-test_wlog()
-
-print("Testing level: NONE")
-wlog.level = wlog.LOG_LEVEL_NONE
+print("Testing wlog: INFO...")
+wlog.level = wlog.INFO
 test_wlog()
 
 print("Testing level: TRACE all in ram")
-wlog.level = wlog.LOG_LEVEL_TRACE
-wlog.mod1 = wlog.writers(wlog.modules.mod1,wlog.ram)
-wlog.mod2 = wlog.writers(wlog.modules.mod2,wlog.ram)
+wlog.level = wlog.TRACE
+wlog.WEB = wlog.writers(wlog.modules.WEB,wlog.ram)
+clog = wlog.WEB.con
+rlog = wlog.WEB.ram
 test_wlog()
 
 print("Testing level: DEBUG all in con")
-wlog.level = wlog.LOG_LEVEL_DEBUG
-wlog.mod1 = wlog.writers(wlog.modules.mod1,wlog.con)
-wlog.mod2 = wlog.writers(wlog.modules.mod2,wlog.con)
+wlog.level = wlog.DEBUG
+wlog.WEB = wlog.writers(wlog.modules.WEB,wlog.con)
+clog = wlog.WEB.con
+rlog = wlog.WEB.ram
 test_wlog()
 
-print("Testing level: INFO mod1 in ram and mod2 in con")
-wlog.level = wlog.LOG_LEVEL_INFO
-wlog.mod1 = wlog.writers(wlog.modules.mod1,wlog.ram)
-wlog.mod2 = wlog.writers(wlog.modules.mod2,wlog.con)
+print("Testing level: INFO reset output")
+wlog.level = wlog.INFO
+wlog.WEB = wlog.writers(wlog.modules.WEB)
+clog = wlog.WEB.con
+rlog = wlog.WEB.ram
 test_wlog()
-
--- ======================================================== 
--- Example of output using command: lua test.lua
---
--- Testing level: INFO
--- mod1.con: Here is the info
--- mod2.con: Here is the info
--- Testing level: TRACE
--- mod1.con: Here is the info
--- mod1.con: Here is the trace
--- mod2.con: Here is the info
--- mod2.con: Here is the trace
--- mod2.ram: Here is the trace
--- Testing level: DEBUG
--- mod1.con: Here is the info
--- mod1.con: Here is the trace
--- mod1.ram: Here is the debug
--- mod2.con: Here is the info
--- mod2.con: Here is the trace
--- mod2.ram: Here is the trace
--- mod2.con: Here is the debug
--- Testing level: NONE
--- Testing level: TRACE all in ram
--- mod1.ram: Here is the info
--- mod1.ram: Here is the trace
--- mod2.ram: Here is the info
--- mod2.ram: Here is the trace
--- mod2.ram: Here is the trace
--- Testing level: DEBUG all in con
--- mod1.con: Here is the info
--- mod1.con: Here is the trace
--- mod1.con: Here is the debug
--- mod2.con: Here is the info
--- mod2.con: Here is the trace
--- mod2.con: Here is the trace
--- mod2.con: Here is the debug
--- Testing level: INFO mod1 in ram and mod2 in con
--- mod1.ram: Here is the info
--- mod2.con: Here is the info
--- ======================================================== 

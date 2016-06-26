@@ -6,32 +6,33 @@
 -- date:   june 2016
 -- =====================================================
 
+local core = require"wlog.core"
+
 local wlog = {}
 
 
-local  LOG_LEVEL_NONE   =  0
-local  LOG_LEVEL_INFO   =  1
-local  LOG_LEVEL_TRACE  =  2
-local  LOG_LEVEL_DEBUG  =  3
-
-
-wlog.level = LOG_LEVEL_INFO
-
-local mod1 = "mod1"
-local mod2 = "mod2"
-local mod3 = "mod3"
-
-
-local level_check = function (level)
-    local ref_level = level
-    return function ()
-        return wlog.level >= ref_level
+local level_mt ={
+    __call = function (...)
+        return arg[1].level <= wlog.level.level
     end
+}
+
+local levels = {}
+for k,v in pairs(core.enums.WLOG_LEVELS)
+do
+    local lvl = string.sub(k,5)
+    levels[lvl] = {
+        level = v
+    }
+end
+wlog.level = levels.INFO
+for k,v in pairs(core.enums.WLOG_LEVELS)
+do
+    local lvl = string.sub(k,5)
+    setmetatable(levels[lvl],level_mt)
+    wlog[lvl] = levels[lvl]
 end
 
-wlog.INFO = level_check(LOG_LEVEL_INFO)
-wlog.TRACE = level_check(LOG_LEVEL_TRACE)
-wlog.DEBUG = level_check(LOG_LEVEL_DEBUG)
 
 local con = function (module,txt)
     return function(txt)
@@ -67,19 +68,25 @@ wlog.con = con
 wlog.ram = ram
 
 
-wlog.mod1 = writers(mod1)
-wlog.mod2 = writers(mod2)
+for k,v in pairs(core.enums.WLOG_FUNCTS)
+do
+    local mod = string.sub(k,5)
+    wlog[mod] = writers(mod)
+end
 
-wlog.LOG_LEVEL_NONE   =  LOG_LEVEL_NONE
-wlog.LOG_LEVEL_INFO   =  LOG_LEVEL_INFO
-wlog.LOG_LEVEL_TRACE  =  LOG_LEVEL_TRACE
-wlog.LOG_LEVEL_DEBUG  =  LOG_LEVEL_DEBUG
 
 local modules = {}
-modules.mod1 = mod1
-modules.mod2 = mod2
+for k,v in pairs(core.enums.WLOG_FUNCTS)
+do
+    local mod = string.sub(k,5)
+    modules[mod] = mod
+end
 
 wlog.modules = modules
+
+wlog.demo = core.demo
+wlog.enums = core.enums
+wlog.levels = levels
 
 return wlog
 
