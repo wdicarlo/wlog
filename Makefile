@@ -43,4 +43,4 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@$(CC) -c $(CFLAGS) $(LUA_CFLAGS) $< -o $@
 
 clean:
-	rm -f $(OBJS) $(LIBNAME) $(OBJ_DIR)/*.o $(OBJ_DIR)/*.d wlog.so
+	rm -f $(OBJS) $(LIBNAME) $(OBJ_DIR)/*.o $(OBJ_DIR)/*.d wlog.so log.txt*
