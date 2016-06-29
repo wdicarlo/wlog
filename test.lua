@@ -4,18 +4,18 @@ local clog = wlog.WEB.con
 local rlog = wlog.WEB.ram
 
 
-function test_wlog()
-    clog( ERR and "ERR!!!")
-    clog( INFO and "INFO!!!")
-    clog( TRACE and "TRACE!!!")
-    clog( DEBUG and "DEBUG!!!")
-    rlog( ERR and "ERR!!!")
-    rlog( INFO and "INFO!!!")
-    rlog( TRACE and "TRACE!!!")
-    rlog( DEBUG and "DEBUG!!!")
-
-    wlog.GEN.con( TRACE and "TRACE!!!")
-    wlog.GEN.ram( TRACE and "TRACE!!!")
+function test_wlog(msg)
+    local txt = msg or ""
+    clog(          ERR    and  "ERR!!! - "..txt)
+    clog(          INFO   and  "INFO!!! - "..txt)
+    clog(          TRACE  and  "TRACE!!! - "..txt)
+    clog(          DEBUG  and  "DEBUG!!! - "..txt)
+    rlog(          ERR    and  "ERR!!! - "..txt)
+    rlog(          INFO   and  "INFO!!! - "..txt)
+    rlog(          TRACE  and  "TRACE!!! - "..txt)
+    rlog(          DEBUG  and  "DEBUG!!! - "..txt)
+    wlog.GEN.con(  TRACE  and  "TRACE!!! - "..txt)
+    wlog.GEN.ram(  TRACE  and  "TRACE!!! - "..txt)
 end
 
 print("Testing wlog: DEBUG...")
@@ -51,6 +51,6 @@ print("Testing level: INFO with rolling file")
 wlog.WEB = wlog.writers(wlog.modules.WEB,wlog.sto)
 clog = wlog.WEB.con
 rlog = wlog.WEB.ram
-for i=1,1000 do
-    test_wlog()
+for i=1,10000 do
+    test_wlog(i)
 end

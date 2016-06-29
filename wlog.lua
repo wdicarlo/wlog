@@ -7,6 +7,9 @@
 -- =====================================================
 
 local core = require"wlog.core"
+local rollfile = require"wlog_rollfile"
+
+local openRollingFileLogger = rollfile.openRollingFileLogger
 
 local wlog = {}
 
@@ -43,74 +46,10 @@ local ram = function (module,txt)
     end
 end
 
----------------------------------------------------------------------------
--- sto is a wlog writer that rolls over the logfile
--- once it has reached a certain size limit. It also mantains a
--- maximum number of log files.
---
--- @author Tiago Cesar Katcipis (tiagokatcipis@gmail.com)
---
--- @copyright 2004-2013 Kepler Project
----------------------------------------------------------------------------
-wlog.rollfile = {
-    filename = "log.txt",
-    maxSize = 50000,
-    maxIndex = 5
-}
-
-local function openFile(self)
-    if self.file then
-		return nil, string.format("file `%s' is already open", self.filename)
-    end
-
-	self.file = io.open(self.filename, "a")
-	if not self.file then
-		return nil, string.format("file `%s' could not be opened for writing", self.filename)
-	end
-	self.file:setvbuf ("line")
-    print("wlog: opened file: "..self.filename)
-	return self.file
-end
-
-local rollOver = function (self)
-	for i = self.maxIndex - 1, 1, -1 do
-		-- files may not exist yet, lets ignore the possible errors.
-        print("wlog: renaming file: "..self.filename.."."..i.." to "..self.filename.."."..i+1)
-		os.rename(self.filename.."."..i, self.filename.."."..i+1)
-	end
-
-	self.file:close()
-    print("wlog: closed file: "..self.filename)
-	self.file = nil
-
-    print("wlog: renaming file: "..self.filename.." to "..self.filename..".".."1")
-	local _, msg = os.rename(self.filename, self.filename..".".."1")
-
-	if msg then
-		return nil, string.format("error %s on log rollover", msg)
-	end
-
-	return openFile(self)
-end
-
-
-local openRollingFileLogger = function (self)
-	if not self.file then
-		return openFile(self)
-	end
-
-	local filesize = self.file:seek("end", 0)
-
-	if (filesize < self.maxSize) then
-		return self.file
-	end
-
-	return rollOver(self)
-end
 
 local sto = function (module,txt)
     return function(txt)
-        local f, err = openRollingFileLogger(wlog.rollfile)
+        local f, err = openRollingFileLogger(rollfile.config)
         if not f then
             print("ERROR: "..err)
             return nil
