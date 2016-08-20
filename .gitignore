@@ -1,0 +1,5 @@
+*.so
+obj
+telescope.lua
+telescope
+tsc
