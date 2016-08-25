@@ -11,6 +11,7 @@
 -- wlog.<mod>.<level>.writer = { wlog.writers.<writer1>, wlog.writers.<writer2>, ...} -- set group of writers
 -- wlog.<mod>.<level> ( )                                                             -- true if <level> is active, otherwise false
 -- wlog.<mod> ( <level> )                                                             -- set <mod>'s level to <level>
+-- wlog.<mod> ( )                                                                     -- get <mod>'s level
 -- wlog.<level> ()                                                                    -- is equivalent to wlog.GEN.<level> ()
 -- wlog.<mod>.<level> ( wlog.<mod>.<level>() and <msg>  )                             -- log <msg> if <level> is active
 -- wlog.<mod> ( wlog.<mod>.<level>() and <msg>  )                                     -- log <msg> if <level> is active
@@ -20,7 +21,7 @@
 -- wlog.<mod>.<level> ( msg, "tag" )                                                  .. single tag
 -- wlog.<mod>.<level> ( msg, {"tag1","tag2", ...} )                                   -- tags in or expression
 -- wlog.<mod>.<level> {"tag1","tag2", ...}                                            -- tags in or expression
--- wlog()                                                                             -- equivalent to wlog.GEN()
+-- wlog()                                                                             -- equivalent to wlog.GEN() which return level of GEN module
 -- wlog(<level>)                                                                      -- equivalent to wlog.GEN(<level>)
 -- TODO:
 -- wlog.config{<config>}   -- set configuration
@@ -28,6 +29,9 @@
 -- wlog.<mod>.set_level ( level )
 -- wlog.<mod>.<level> ( msg, "tag expression" )
 -- wlog.<mod>.<level> { tags="tag expression", msg }
+-- wlog.tags({<tag1>,...})                                                            -- start logging section associated to <tag1>,...
+-- wlog.tags()                                                                        -- get logging section's tags
+-- wlog.tags({})                                                                      -- stop logging section with associated tags <tag1>,...
 -- =====================================================
 
 local debug = false
