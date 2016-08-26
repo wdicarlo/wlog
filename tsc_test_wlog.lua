@@ -396,4 +396,47 @@ describe("The wlog", function()
         assert_equal(output,"con: GEN: level=LOG_TRACE msg=GEN: TRACE!!! #mytag1 #mytag2")
       end)
   end)
+  context("wlog.tags{<tag1>,...}; wlog.tags(); ...; wlog.tags{}",function()
+      wlog.set_level(wlog.levels.INFO)
+      it("Should not have contextual tags at the begin",function()
+          assert_equal(#wlog.tags(),0)
+      end)
+      it("Should add tags to the existing one",function()
+          assert_equal(#wlog.tags(),0)
+          wlog.tags{'a'}
+          assert_equal(#wlog.tags(),1)
+          wlog.tags{'b'}
+          assert_equal(#wlog.tags(),2)
+          wlog.tags{'c'}
+          assert_equal(#wlog.tags(),3)
+          assert_equal(tostring(wlog.tags()),"{ \"a\", \"b\", \"c\" }")
+      end)
+      it("Should empty the contextual tags",function()
+          assert_greater_than(#wlog.tags(),0)
+          assert_equal(#wlog.tags{},0)
+      end)
+      it("Should print the contextual tags in the log messages",function()
+          output = ""
+          rawset(wlog.GEN.INFO,"_writer",tsc_con)
+          assert_equal(#wlog.tags(),0)
+          wlog.tags{'a'}
+          assert_equal(#wlog.tags(),1)
+          wlog.INFO("Hello World")
+          wlog.INFO("This is nice")
+          wlog.INFO("Here we are","b")
+          assert_equal(output, "con: GEN: level=LOG_INFO msg=Hello World #a\ncon: GEN: level=LOG_INFO msg=This is nice #a\ncon: GEN: level=LOG_INFO msg=Here we are #b #a")
+          wlog.tags{}
+          output = ""
+          wlog.INFO("Hello World")
+          assert_equal(output, "con: GEN: level=LOG_INFO msg=Hello World")
+      end)
+      it("Should manage contextual tags like modules",function()
+          wlog.tags{}
+          assert_equal(#wlog.tags(),0)
+          wlog.tags{'atag'}
+          assert_equal(tostring(wlog.tags()),"{ \"atag\" }")
+          wlog.atag(wlog.levels.ERR)
+          assert_equal(tostring(wlog.atag()),tostring(wlog.levels.ERR))
+      end)
+  end)
 end)

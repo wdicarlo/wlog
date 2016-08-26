@@ -23,15 +23,17 @@
 -- wlog.<mod>.<level> {"tag1","tag2", ...}                                            -- tags in or expression
 -- wlog()                                                                             -- equivalent to wlog.GEN() which return level of GEN module
 -- wlog(<level>)                                                                      -- equivalent to wlog.GEN(<level>)
+-- wlog.tags{<tag1>,...}                                                              -- start logging section associated to <tag1>,...
+-- wlog.tags()                                                                        -- get logging section's tags
+-- wlog.tags{}                                                                        -- stop logging section with associated tags <tag1>,...
+--
+--
 -- TODO:
 -- wlog.config{<config>}   -- set configuration
 -- wlog.config()           -- get configuration
 -- wlog.<mod>.set_level ( level )
 -- wlog.<mod>.<level> ( msg, "tag expression" )
 -- wlog.<mod>.<level> { tags="tag expression", msg }
--- wlog.tags({<tag1>,...})                                                            -- start logging section associated to <tag1>,...
--- wlog.tags()                                                                        -- get logging section's tags
--- wlog.tags({})                                                                      -- stop logging section with associated tags <tag1>,...
 -- =====================================================
 
 local debug = false
@@ -75,6 +77,7 @@ end
 
 
 local wlog = {}
+local ctags = {} -- contextual tags
 
 wlog._VERSION = "1.0"
 
@@ -125,6 +128,15 @@ local function add_module(module)
     }
     if debug then print("Added module: "..tostring(modules[module])) end
     return modules[module]
+end
+
+local function is_in(tags,tag)
+    assert(type(tags) == "table")
+    assert(type(tag) == "string")
+    for _,t in ipairs(tags) do
+        if t == tag then return true end
+    end
+    return false
 end
 
 local con = function (txt)
@@ -234,6 +246,7 @@ local function is_writer(func)
     return false
 end
 
+
 local level_mt = {
     __call = function(self,...)
         rawset(self.module,"_last",self.level)
@@ -252,9 +265,12 @@ local level_mt = {
                 ntags = 0
                 tags = {}
                 for _,tag in ipairs(par) do
-                    local mod = add_module(tag)
-                    tags[#tags + 1] = tag
-                    ntags = ntags + 1
+                    if tags == nil then tags = {} end
+                    add_module(tag)
+                    if is_in(tags,tag) == false then
+                        tags[#tags + 1] = tag
+                        ntags = ntags + 1
+                    end
                 end
             end
         elseif n > 1 then
@@ -263,13 +279,23 @@ local level_mt = {
             if ttags == "string" then
                 -- add module
                 ntags = 1
-                local mod = add_module(tags)
+                add_module(tags)
                 tags = { tags } -- put in an array
             elseif ttags == "table" then
                 -- add modules
                 ntags = 0
                 for _,tag in ipairs(tags) do
-                    local mod = add_module(tag)
+                    add_module(tag)
+                    ntags = ntags + 1
+                end
+            end
+        end
+        if ctags and #ctags > 0 then
+            for _,tag in ipairs(ctags) do
+                add_module(tag)
+                if tags == nil then tags = {} end
+                if is_in(tags,tag) == false then
+                    tags[#tags + 1] = tag
                     ntags = ntags + 1
                 end
             end
@@ -419,6 +445,32 @@ local wlog_mt = {
 wlog = setmetatable(wlog,wlog_mt)
 
 
+local function is_ctag(tag)
+    for _,t in ipairs(ctags) do
+        if t == tag then return true end
+    end
+    return false
+end
+
+local function tags(list)
+    assert(list == nil or type(list)=="table","Wrong list of tags")
+    if list == nil then
+        return ctags
+    end
+    if #list == 0 then
+        ctags = {}
+        return ctags
+    end
+    -- check if list of modules need to be updated
+    for _,tag in ipairs(list) do
+        if is_ctag(tag) == false then 
+            ctags[#ctags+1] = tag
+        end
+    end
+end
+
+
+
 local function set_level(level)
     assert(type(level) == "table")
     assert(level.name)
@@ -442,6 +494,7 @@ wlog.set_level = set_level
 wlog.writers  =  writers
 wlog.levels   =  levels
 wlog.modules  =  modules
+wlog.tags     =  tags
 
 set_level(levels.INFO)
 
