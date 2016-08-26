@@ -1,0 +1,10 @@
+Version 0.1.0
+ - Added more examples of usage of module classic
+ - Improved classic example
+ - Refactored wlog and added example with classic module (from Torch project)
+ - Improved rolling file writer
+ - Added writer for rolling file and improved level checking
+ - * Improved code * Added C interface
+ - Added example of test execution
+ - Initial import of an example of lua logger
+
