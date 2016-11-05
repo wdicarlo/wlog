@@ -26,17 +26,28 @@
 -- wlog.tags{<tag1>,...}                                                              -- start logging section associated to <tag1>,...
 -- wlog.tags()                                                                        -- get logging section's tags
 -- wlog.tags{}                                                                        -- stop logging section with associated tags <tag1>,...
---
+-- wlog.config{<config>}                                                              -- set configuration
+-- wlog.config()                                                                      -- get configuration
+-- wlog.plugin(<plugin>)                                                              -- set wlog plugin
+-- wlog.fromlevel(<internal_level)                                                    -- get external representation of level
+-- wlog.tolevel  (<external_level)                                                    -- get internal representation of level
+-- wlog.frommodule(<internal_module)                                                  -- get external representation of module
+-- wlog.tomodule  (<external_module)                                                  -- get internal representation of module
 --
 -- TODO:
--- wlog.config{<config>}   -- set configuration
--- wlog.config()           -- get configuration
 -- wlog.<mod>.set_level ( level )
 -- wlog.<mod>.<level> ( msg, "tag expression" )
 -- wlog.<mod>.<level> { tags="tag expression", msg }
 -- =====================================================
 
+local ok,dbg = pcall(require,"debugger")
+if not ok  then
+    dbg = function() end 
+end
+dbg = function() end  -- disable debugger
 local debug = false
+
+local _plugin = nil
 
 local function prequire(m) 
   local ok, res = pcall(require, m) 
@@ -53,45 +64,43 @@ local tostring = inspect and function (arg)
 end or tostring
 
 if core == nil then
-	core = {
-		enums = {
-			WLOG_LEVELS = {
-				LOG_ERR    =  1,
-				LOG_WARN   =  2,
-				LOG_INFO   =  3,
-				LOG_TRACE  =  4,
-				LOG_DEBUG  =  5,
-			},
-			WLOG_FUNCTS = {
-				LOG_GEN = 1,
-				LOG_ALM = 2,
-				LOG_SYS = 3,
-				LOG_SQL = 4,
-				LOG_GUI = 5,
-				LOG_SRV = 6,
-				LOG_WEB = 7,
-			}
-		}
-	}
+    core = {
+        enums = {
+            WLOG_LEVELS = {
+                LOG_ERR    =  1,
+                LOG_WARN   =  2,
+                LOG_INFO   =  3,
+                LOG_TRACE  =  4,
+                LOG_DEBUG  =  5,
+            },
+            WLOG_FUNCTS = {
+                LOG_GEN = 1,
+                LOG_ALM = 2,
+                LOG_SYS = 3,
+                LOG_SQL = 4,
+                LOG_GUI = 5,
+                LOG_SRV = 6,
+                LOG_WEB = 7,
+            }
+        }
+    }
 end
+
+local defaults = {
+    module = "GEN",
+    level  = "INFO",
+    writer = "con",
+}
 
 
 local wlog = {}
 local ctags = {} -- contextual tags
+local levels = {}
+local modules = {}
+local writers = {}
 
-wlog._VERSION = "1.0"
 
--- levels defaults
-local levels = { }
-for k,v in pairs(core.enums.WLOG_LEVELS)
-do
-    local lvl = string.sub(k,5)
-    levels[lvl] = {
-        name = k,
-        value = v,
-    }
-end
-if debug then print("levels:\n",tostring(levels)) end
+
 local function is_level( level )
     for k,v in pairs(levels) do
         if v == level then return true end
@@ -99,17 +108,6 @@ local function is_level( level )
     return false
 end
 
--- modules defaults
-local modules = { }
-for k,v in pairs(core.enums.WLOG_FUNCTS)
-do
-    local mod = string.sub(k,5)
-    modules[mod] = {
-        id = v,
-        name = k
-    }
-end
-if debug then print("modules:\n",tostring(modules)) end
 local function is_module(module)
     return modules[module] ~= nil
 end
@@ -130,6 +128,27 @@ local function add_module(module)
     return modules[module]
 end
 
+local fromlevel = function (level)
+    assert(type(level)=="string","Wrong level")
+    return string.sub(level,5)
+
+end
+
+local tolevel = function (level)
+    assert(type(level)=="string","Wrong level")
+    return "LOG_"..level
+end
+
+local frommodule = function (module)
+    assert(type(module)=="string","Wrong module")
+    return string.sub(module,5)
+
+end
+
+local tomodule = function (module)
+    assert(type(module)=="string","Wrong module")
+    return "LOG_"..module
+end
 local function is_in(tags,tag)
     assert(type(tags) == "table")
     assert(type(tag) == "string")
@@ -173,48 +192,48 @@ local rollfile = {
 
 local function openFile(self)
     if self.file then
-		return nil, string.format("file `%s' is already open", self.filename)
+        return nil, string.format("file `%s' is already open", self.filename)
     end
 
-	self.file = io.open(self.filename, "a")
-	if not self.file then
-		return nil, string.format("file `%s' could not be opened for writing", self.filename)
-	end
-	self.file:setvbuf ("line")
-	return self.file
+    self.file = io.open(self.filename, "a")
+    if not self.file then
+        return nil, string.format("file `%s' could not be opened for writing", self.filename)
+    end
+    self.file:setvbuf ("line")
+    return self.file
 end
 
 local rollOver = function (self)
-	for i = self.maxIndex - 1, 1, -1 do
-		-- files may not exist yet, lets ignore the possible errors.
-		os.rename(self.filename.."."..i, self.filename.."."..i+1)
-	end
+    for i = self.maxIndex - 1, 1, -1 do
+        -- files may not exist yet, lets ignore the possible errors.
+        os.rename(self.filename.."."..i, self.filename.."."..i+1)
+    end
 
-	self.file:close()
-	self.file = nil
+    self.file:close()
+    self.file = nil
 
-	local _, msg = os.rename(self.filename, self.filename..".".."1")
+    local _, msg = os.rename(self.filename, self.filename..".".."1")
 
-	if msg then
-		return nil, string.format("error %s on log rollover", msg)
-	end
+    if msg then
+        return nil, string.format("error %s on log rollover", msg)
+    end
 
-	return openFile(self)
+    return openFile(self)
 end
 
 
 local openRollingFileLogger = function (self)
-	if not self.file then
-		return openFile(self)
-	end
+    if not self.file then
+        return openFile(self)
+    end
 
-	local filesize = self.file:seek("end", 0)
+    local filesize = self.file:seek("end", 0)
 
-	if (filesize < self.maxSize) then
-		return self.file
-	end
+    if (filesize < self.maxSize) then
+        return self.file
+    end
 
-	return rollOver(self)
+    return rollOver(self)
 end
 local sto = function (txt)
     local f, err = openRollingFileLogger(rollfile.config)
@@ -232,13 +251,6 @@ end
 local nul = function (txt)
 end
 
-local writers = {}
-writers.con = con
-writers.ram = ram
-writers.sto = sto
-writers.nul = nul
-if debug then print("writers:\n",tostring(writers)) end
-
 local function is_writer(func)
     for name,writer in pairs(writers) do
         if func == writer then return true end
@@ -246,6 +258,26 @@ local function is_writer(func)
     return false
 end
 
+local eval = function (module,level,tags,modules,context)
+    if module.level.value >= level.value then
+        local wrt = rawget(context,"_writer")
+        return true, wrt
+    end
+    local res = false
+    local writer = nil
+    if tags then
+        for _,tag in ipairs(tags) do
+            -- if any tag has level lower than the current one then the text can be logged
+            --if modules[tag].level.value <= module.level.value   then
+            if modules[tag].level.value >= level.value   then
+                res = true
+                writer = rawget(context,"_writer")
+                break
+            end
+        end
+    end
+    return res, writer
+end
 
 local level_mt = {
     __call = function(self,...)
@@ -253,7 +285,8 @@ local level_mt = {
         rawset(self.module,"_last_tags",nil)
         local n = select("#",...)
         if n == 0 then
-            return self.level.value <= self.module.level.value
+            local eval_res, eval_writer =  eval(self.module,self.level,nil,wlog,self)
+            return eval_res
         end
         local tags = nil
         local ntags = 0
@@ -304,19 +337,11 @@ local level_mt = {
             rawset(self.module,"_last_tags",tags)
         end
         -- evaluate status considering also the tags
-        if self.level.value > self.module.level.value then
-            local res = false
-            if tags then
-                for _,tag in ipairs(tags) do
-                    -- if any tag has level lower than the current one then the text can be logged
-                    if wlog[tag].level.value <= self.module.level.value   then
-                        res = true
-                        break
-                    end
-                end
-            end
-            if res == false then return false end
+        local eval_res, eval_writer = eval(self.module,self.level,tags,wlog,self) 
+        if eval_res == false then 
+            return false 
         end
+
         -- ok, the text can be logged
         local par = select(1,...)
         local tpar = type(par)
@@ -327,7 +352,9 @@ local level_mt = {
                     msg = msg .. " #"..tag
                 end
             end
+            -- use writers of the module
             local writer = rawget(self,"_writer")
+            local writer = eval_writer 
             if type(writer) == "function" then
                 writer(msg)
             elseif type(writer) == "table" then
@@ -348,18 +375,24 @@ local level_mt = {
         --assert(writers[key] or key == "writer","Wrong writer: "..key)
 
         if key == "writer" and rawget(self,"_writer") == nil then
-            rawset(self,"_writer",writers.con)
+            rawset(self,"_writer",writers[defaults.writer])
         end
 
-        return self._writer
+        --return self._writer
+        local writer = rawget(self,"_writer") -- self._writer
+        if type(writer) == "table" then
+            writer = writer[1]
+        end
+        return writer
     end,
     __newindex = function(self,key,val)
         assert(type(key)=="string","Wrong key: "..tostring(key))
         assert(key=="module" or key=="writer" or key=="level","Wrong key: "..tostring(key))
-        assert(val~=nil,"Wrong value: nil")
+        --assert(val~=nil,"Wrong value: nil")
         if key=="writer" then
             local wt = type(val)
-            assert(wt=="function" or wt=="table")
+            --assert(wt=="function" or wt=="table")
+            assert(wt=="function" or wt=="table" or wt=="nil")
             -- check it is a valid writer
             if wt == "function" then
                 assert(is_writer(val),"Wrong writer")
@@ -368,8 +401,8 @@ local level_mt = {
                     assert(type(w) == "function", "Wrong writer")
                     assert(is_writer(w), "Wrong writer")
                 end
-            else
-                assert(false,"Wrong writer type")
+            --else
+            --    assert(false,"Wrong writer type")
             end
             rawset(self,"_writer", val)
             return
@@ -391,7 +424,7 @@ local module_mt = {
         local par = select(1,...)
         local tpar = type(par)
         if tpar == "table" then
-            assert( is_level(par), "Wrong level")
+            assert( is_level(par), "wrong level: "..tostring(par))
             self.level = par
         elseif tpar == "string" then
             -- message to log using the last level/tags
@@ -399,7 +432,7 @@ local module_mt = {
             local tags = rawget(self,"_last_tags")
             if level == nil then return end -- no know message level
 
-            local lvl = string.sub(level.name,5)
+            local lvl = fromlevel(level.name)
 
             if tags then
                 self[lvl](par,tags)
@@ -414,19 +447,20 @@ local module_mt = {
         assert(levels[key]~=nil,"Wrong level: "..tostring(key))
         self[key] = setmetatable({}, level_mt)
         self[key].level = levels[key]
-        self[key].writer = con
+        --self[key].writer = writers[defaults.writer]
+        self[key].writer = nil
         self[key].module = self
         return self[key]
-    end
+    end,
 }
 local wlog_mt = {
     __call = function(self,...)
         local n = select("#",...)
         if n == 0 then
-            return rawget(self.GEN,"level")
+            return rawget(self[defaults.module],"level")
         end
         local par = select(1,...)
-        return self.GEN(par)
+        return self[defaults.module](par)
     end,
     __index = function(self,key)
         assert(type(key)=="string","Wrong key type for: "..tostring(key))
@@ -434,16 +468,12 @@ local wlog_mt = {
             add_module(key)
         end
         self[key] = setmetatable({}, module_mt)
-        self[key].level = levels.INFO
+        self[key].level = levels[defaults.level]
         self[key].name = key
         self[key].id = modules[key]["id"]
         return self[key]
-    end
+    end,
 }
-
-
-wlog = setmetatable(wlog,wlog_mt)
-
 
 local function is_ctag(tag)
     for _,t in ipairs(ctags) do
@@ -469,39 +499,214 @@ local function tags(list)
     end
 end
 
-
-
 local function set_level(level)
-    assert(type(level) == "table")
-    assert(level.name)
-    assert(level.value)
-    assert(core.enums.WLOG_LEVELS[level.name])
-    assert(core.enums.WLOG_LEVELS[level.name] == level.value)
+    assert(type(level) == "table","Wrong level: "..tostring(level))
+    assert(level.name,"Missing level's name")
+    assert(level.value,"Missing level's value")
+    assert(core.enums.WLOG_LEVELS[level.name],"Unknown level")
+    assert(core.enums.WLOG_LEVELS[level.name] == level.value,
+        "Wrong level - expected "..core.enums.WLOG_LEVELS[level.name].." got "..level.value)
 
     rawset(wlog,"level",level)
     if debug then print("wlog.level = "..wlog.level.name) end
-    for k,v in pairs(core.enums.WLOG_FUNCTS)
+    for k,v in pairs(wlog.modules)
     do
-        local mod = string.sub(k,5)
-        if wlog[mod] then
-            rawset(wlog[mod],"level",level)
+        --local mod = frommodule(k)
+        --if wlog[mod] then
+        --    rawset(wlog[mod],"level",level)
+        --end
+        if wlog[k] then
+            rawset(wlog[k],"level",level)
         end
     end
 end
 
-wlog.set_level = set_level
-
-wlog.writers  =  writers
-wlog.levels   =  levels
-wlog.modules  =  modules
-wlog.tags     =  tags
-
-set_level(levels.INFO)
-
-for k,v in pairs(core.enums.WLOG_LEVELS)
-do
-    local lvl = string.sub(k,5)
-    wlog[lvl] = wlog.GEN[lvl]
+local _reset = function()
+    ctags = {} -- contextual tags
+    levels = {}
+    modules = {}
+    writers = {}
+    for k,v in pairs(wlog) do
+        if type(v) == "table" then
+            rawset(wlog,k,nil)
+        end
+    end
 end
+local function _init_enums()
+    -- levels defaults
+    for k,v in pairs(core.enums.WLOG_LEVELS)
+        do
+            local lvl = fromlevel(k)
+dbg("k = "..tostring(k).." lvl = "..tostring(lvl))
+            levels[lvl] = {
+                name = k,
+                value = v,
+            }
+        end
+    if debug then print("levels:\n",tostring(levels)) end
+    -- modules defaults
+    for k,v in pairs(core.enums.WLOG_FUNCTS)
+        do
+            local mod = frommodule(k)
+            modules[mod] = {
+                id = v,
+                name = k
+            }
+        end
+    if debug then print("modules:\n",tostring(modules)) end
+
+end
+local function _init_writers()
+    writers.con = con
+    writers.ram = ram
+    writers.sto = sto
+    writers.nul = nul
+    if debug then print("writers:\n",tostring(writers)) end
+
+end
+local function plugin(wlog_plugin)
+dbg("begin of wlog_plugin")
+    if wlog_plugin == nil then return _plugin end
+
+    assert(wlog_plugin and type(wlog_plugin)=="table","Wrong plugin")
+    assert(wlog_plugin.is_wlog_plugin,"Wrong plugin")
+    assert(wlog_plugin.wlog_plugin_name,"Wrong plugin")
+
+    _reset()
+
+    --if wlog_plugin.setup then wlog_plugin.setup(wlog) end
+
+    if wlog_plugin.enums then
+        assert(wlog_plugin.enums.WLOG_FUNCTS,"Wrong enums")
+        assert(wlog_plugin.enums.WLOG_LEVELS,"Wrong enums")
+        core.enums = wlog_plugin.enums
+dbg("after enums setup")
+    end
+
+    if wlog_plugin.fromlevel  then fromlevel  = wlog_plugin.fromlevel end
+    if wlog_plugin.tolevel    then tolevel    = wlog_plugin.tolevel end
+    if wlog_plugin.frommodule then frommodule = wlog_plugin.frommodule end
+    if wlog_plugin.tomodule   then tomodule   = wlog_plugin.tomodule end
+
+    wlog.fromlevel    =           fromlevel
+    wlog.tolevel      =           tolevel
+    wlog.frommodule   =           frommodule
+    wlog.tomodule     =           tomodule
+
+dbg("before _init_enums")
+    _init_enums()
+
+dbg("before _init_writers")
+    _init_writers()
+    if wlog_plugin.con then writers.con = wlog_plugin.con end
+    if wlog_plugin.ram then writers.ram = wlog_plugin.ram end
+    if wlog_plugin.sto then writers.sto = wlog_plugin.sto end
+
+    --if wlog_plugin.setup then wlog_plugin.setup() end
+
+    if wlog_plugin.config then config = wlog_plugin.config end
+    if wlog_plugin.defaults then
+        local defs = wlog_plugin.defaults
+        if  defs.module  then  defaults.module  =  defs.module   end
+        if  defs.level   then  defaults.level   =  defs.level    end
+        if  defs.writer  then  defaults.writer  =  defs.writer   end
+    end
+
+    if wlog_plugin.eval then eval = wlog_plugin.eval end
+
+    _plugin = wlog_plugin
+
+    wlog.writers  =  writers
+    wlog.levels   =  levels
+    wlog.modules  =  modules
+    wlog.tags     =  tags
+    wlog.config   =  config
+
+dbg("before set_level")
+    set_level(levels[defaults.level])
+
+    for k,v in pairs(core.enums.WLOG_LEVELS)
+        do
+            local lvl = fromlevel(k)
+            wlog[lvl] = wlog[defaults.module][lvl]
+        end
+
+    if wlog_plugin.setup then wlog_plugin.setup(wlog) end
+
+    if debug then print("wlog: pluged-in: "..wlog_plugin.wlog_plugin_name) end
+    return true
+end
+
+local config = function (cfg)
+    -- {
+    --  enums = <wlog enums>,
+    --  defaults = <wlog defaults>,
+    -- }
+    if cfg then
+        assert(type(cfg) == "table", "Wrong config: "..tostring(cfg))
+        _reset()
+        if cfg.defaults then defaults = cfg.defaults end -- TODO: assert defaults struct
+        if cfg.enums then core.enums = cfg.enums end -- TODO: assert enums struct
+        _init_enums()
+
+        _init_writers()
+        wlog.writers  =  writers
+        wlog.levels   =  levels
+        wlog.modules  =  modules
+        wlog.tags     =  tags
+        for k,v in pairs(core.enums.WLOG_LEVELS)
+            do
+                local lvl = fromlevel(k)
+                wlog[lvl] = wlog[defaults.module][lvl]
+            end
+        set_level(levels[defaults.level])
+    else
+        local cfg = {}
+        cfg.defaults = defaults
+        cfg.enums = core.enums
+
+        return cfg
+    end
+
+end
+
+local function _init()
+    wlog = {}
+
+    _init_enums()
+
+    _init_writers()
+
+    wlog = setmetatable(wlog,wlog_mt)
+
+    wlog._VERSION = "1.0"
+
+    wlog.set_level = set_level
+
+    wlog.writers      =           writers
+    wlog.levels       =           levels
+    wlog.modules      =           modules
+    wlog.tags         =           tags
+    wlog.plugin       =           plugin
+    wlog.config       =           config
+    wlog.fromlevel    =           fromlevel
+    wlog.tolevel      =           tolevel
+    wlog.frommodule   =           frommodule
+    wlog.tomodule     =           tomodule
+    wlog.is_module    =           is_module
+    wlog.is_writer    =           is_writer
+    wlog.add_module   =           add_module
+
+    set_level(levels[defaults.level])
+
+    for k,v in pairs(core.enums.WLOG_LEVELS)
+        do
+            local lvl = fromlevel(k)
+            wlog[lvl] = wlog[defaults.module][lvl]
+        end
+end
+
+
+_init()
 
 return wlog

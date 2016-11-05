@@ -23,11 +23,11 @@
 #define  LOG_LRAM   1
 #define  LOG_LCON   2
 
-#define  LOG_ERR    3
-#define  LOG_WARN   4
-#define  LOG_INFO   5
-#define  LOG_TRACE  6
-#define  LOG_DEBUG  7
+#define  LOG_ERR    1
+#define  LOG_WARN   2
+#define  LOG_INFO   3
+#define  LOG_TRACE  4
+#define  LOG_DEBUG  5
 
 #define  LOG_WEBAPP  1
 
@@ -37,7 +37,7 @@
 #define  LOG_SQL    4
 #define  LOG_GUI    5
 #define  LOG_SRV    6
-#define  LOG_WEB    6
+#define  LOG_WEB    7
 
 
 #define PUSH_ENUM(enum_item)  do {  \
