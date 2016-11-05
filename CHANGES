@@ -1,3 +1,7 @@
+Version 0.2.0:
+ - - Added support for wlog plugins
+ - Added support for contextual tags
+
 Version 0.1.0
  - Added more examples of usage of module classic
  - Improved classic example
